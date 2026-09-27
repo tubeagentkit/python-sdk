@@ -1,0 +1,418 @@
+"""HTTP client for the GetYouTubeTranscript REST API.
+
+API reference: https://getyoutubetranscript.com/docs
+OpenAPI spec:  https://getyoutubetranscript.com/openapi.json
+"""
+
+from __future__ import annotations
+
+from typing import Any, Optional
+
+import requests
+
+from .exceptions import GetYouTubeTranscriptError
+
+DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
+DEFAULT_TIMEOUT = 30.0
+
+
+def _clean(params: dict[str, Any]) -> dict[str, Any]:
+    """Drop ``None`` values so optional query params are omitted entirely."""
+    return {k: v for k, v in params.items() if v is not None}
+
+
+def _send(
+    session: requests.Session,
+    method: str,
+    url: str,
+    *,
+    headers: Optional[dict[str, str]] = None,
+    params: Optional[dict[str, Any]] = None,
+    json_body: Optional[dict[str, Any]] = None,
+    timeout: float,
+) -> dict[str, Any]:
+    """Send one HTTP request and return the parsed JSON body.
+
+    Shared by :class:`Client` (authenticated endpoints) and the module-level
+    ``signup``/``verify_signup`` helpers (no API key needed), so request
+    sending and error parsing live in exactly one place.
+
+    Raises:
+        GetYouTubeTranscriptError: on any network failure, non-2xx status, or
+            a 2xx response whose body is ``{"success": false, ...}``.
+    """
+    try:
+        response = session.request(
+            method,
+            url,
+            headers=headers,
+            params=params,
+            json=json_body,
+            timeout=timeout,
+        )
+    except requests.RequestException as exc:
+        raise GetYouTubeTranscriptError(
+            code="NETWORK_ERROR",
+            message=str(exc),
+            status_code=0,
+        ) from exc
+
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+
+    if not response.ok or not isinstance(payload, dict) or payload.get("success") is False:
+        code = "UNKNOWN_ERROR"
+        message = f"Request failed with HTTP status {response.status_code}"
+        if isinstance(payload, dict):
+            code = payload.get("code", code)
+            message = payload.get("message", message)
+        raise GetYouTubeTranscriptError(
+            code=code,
+            message=message,
+            status_code=response.status_code,
+            response_body=payload if isinstance(payload, dict) else None,
+        )
+
+    return payload
+
+
+class Client:
+    """Authenticated client for the GetYouTubeTranscript API.
+
+    Args:
+        api_key: Your API key (``sk_live_...``). Get one free (100 credits,
+            no card) at https://getyoutubetranscript.com, or via the
+            self-serve :func:`signup` / :func:`verify_signup` flow in this
+            module, which needs no key at all.
+        base_url: Override the API base URL. Defaults to the production
+            endpoint; mainly useful for testing against a local/staging copy.
+        timeout: Per-request timeout in seconds.
+        session: Bring your own ``requests.Session`` (e.g. for connection
+            pooling or custom retry/adapter configuration). One is created
+            for you otherwise.
+
+    Every method costs 1 credit unless its docstring says "free" - failed
+    and rate-limited requests are never charged. Every method raises
+    :class:`~getyoutubetranscript.GetYouTubeTranscriptError` on failure.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        base_url: str = DEFAULT_BASE_URL,
+        timeout: float = DEFAULT_TIMEOUT,
+        session: Optional[requests.Session] = None,
+    ) -> None:
+        if not api_key:
+            raise ValueError("api_key is required")
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self._session = session or requests.Session()
+
+    def _headers(self) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.api_key}",
+            "Accept": "application/json",
+        }
+
+    def _get(self, path: str, params: dict[str, Any]) -> dict[str, Any]:
+        return _send(
+            self._session,
+            "GET",
+            f"{self.base_url}{path}",
+            headers=self._headers(),
+            params=_clean(params),
+            timeout=self.timeout,
+        )
+
+    # -- transcript -----------------------------------------------------
+
+    def get_transcript(self, video: str, *, language: Optional[str] = None) -> dict[str, Any]:
+        """Get a YouTube video's transcript, plus title/author/thumbnail. 1 credit.
+
+        Args:
+            video: Full or short YouTube video URL, or an 11-character video ID.
+            language: Caption language code (e.g. ``"en"``, ``"es"``). Defaults
+                to the API's default of ``"en"`` when omitted.
+
+        Returns:
+            dict with keys ``video_id``, ``language_code``, ``title``,
+            ``author_name``, ``author_url``, ``thumbnail_url``,
+            ``transcript`` (one block of text, no per-segment timestamps),
+            and ``word_count``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the video has no transcript/captions available.
+        """
+        payload = self._get("/transcript", {"v": video, "language": language})
+        return payload["data"]
+
+    # -- search -----------------------------------------------------------
+
+    def search(
+        self,
+        query: Optional[str] = None,
+        *,
+        page_token: Optional[str] = None,
+        type: Optional[str] = None,
+        country: Optional[str] = None,
+        language: Optional[str] = None,
+        limit: Optional[int] = None,
+    ) -> dict[str, Any]:
+        """Search YouTube for videos or channels. 1 credit.
+
+        Args:
+            query: Search query. Required for a first page unless
+                ``page_token`` is given.
+            page_token: Continuation token from a previous response's
+                ``pagination.next_page_token``, to fetch the next page. Treat
+                as opaque - don't construct it yourself.
+            type: Restrict results to ``"video"`` (default) or ``"channel"``.
+                Never mixes both kinds in one response.
+            country: Two-letter region code, e.g. ``"us"``.
+            language: Result language hint, e.g. ``"en"``.
+            limit: Max results to return for this page.
+
+        Returns:
+            dict with ``query``, and either ``video_results`` or
+            ``channel_results`` depending on ``type``, plus
+            ``pagination.next_page_token`` when more results are available.
+
+        Raises:
+            ValueError: if neither ``query`` nor ``page_token`` is given.
+            GetYouTubeTranscriptError: on API failure.
+        """
+        if not query and not page_token:
+            raise ValueError("search() requires either 'query' or 'page_token'")
+        payload = self._get(
+            "/search",
+            {
+                "q": query,
+                "page_token": page_token,
+                "type": type,
+                "country": country,
+                "language": language,
+                "limit": limit,
+            },
+        )
+        return payload["data"]
+
+    # -- channels -----------------------------------------------------------
+
+    def resolve_channel(self, handle: str) -> dict[str, Any]:
+        """Resolve a channel @handle, URL, or ``UC...`` id to its channel ID. Free.
+
+        Args:
+            handle: Channel ``@handle``, a channel URL, or an existing
+                ``UC...`` channel id.
+
+        Returns:
+            dict with ``channel_id``, ``title``, ``handle``, ``resolved_via``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                no channel matches.
+        """
+        payload = self._get("/resolve", {"handle": handle})
+        return payload["data"]
+
+    def get_channel_latest(self, channel: str) -> dict[str, Any]:
+        """Get a channel's metadata plus its home-tab "Latest Videos" shelf. Free.
+
+        For the complete, paginated upload history use
+        :meth:`list_channel_videos` instead.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id.
+
+        Returns:
+            dict of channel metadata plus a home-tab video shelf. The exact
+            field set is passed through from upstream and may grow over
+            time - treat it as loosely typed.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the channel doesn't exist.
+        """
+        payload = self._get("/channel/latest", {"channel": channel})
+        return payload["data"]
+
+    def search_channel(
+        self,
+        channel: Optional[str] = None,
+        query: Optional[str] = None,
+        *,
+        continuation: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Search within one channel's videos. 1 credit.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
+                first page unless ``continuation`` is given.
+            query: Query to search within the channel. Required for a first
+                page unless ``continuation`` is given.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``videos`` (list), ``has_more`` (bool), and
+            ``continuation_token`` (present when ``has_more`` is true).
+
+        Raises:
+            ValueError: if ``continuation`` is not given and either
+                ``channel`` or ``query`` is missing.
+            GetYouTubeTranscriptError: on API failure.
+        """
+        if not continuation and (not channel or not query):
+            raise ValueError(
+                "search_channel() requires either 'continuation', or both "
+                "'channel' and 'query'"
+            )
+        payload = self._get(
+            "/channel/search",
+            {"channel": channel, "q": query, "continuation": continuation},
+        )
+        return payload["data"]
+
+    def list_channel_videos(
+        self, channel: Optional[str] = None, *, continuation: Optional[str] = None
+    ) -> dict[str, Any]:
+        """List every video a channel has ever uploaded (paginated). 1 credit.
+
+        This is the channel's full ``/videos`` tab - not just the home-tab
+        shelf :meth:`get_channel_latest` returns.
+
+        Args:
+            channel: Channel ``@handle``, URL, or ``UC...`` id. Required for a
+                first page unless ``continuation`` is given.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``videos`` (list), ``has_more`` (bool), and
+            ``continuation_token`` (present when ``has_more`` is true).
+
+        Raises:
+            ValueError: if neither ``channel`` nor ``continuation`` is given.
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the channel doesn't exist.
+        """
+        if not channel and not continuation:
+            raise ValueError(
+                "list_channel_videos() requires either 'channel' or 'continuation'"
+            )
+        payload = self._get(
+            "/channel/videos", {"channel": channel, "continuation": continuation}
+        )
+        return payload["data"]
+
+    # -- playlists -----------------------------------------------------------
+
+    def get_playlist(
+        self, list_id: Optional[str] = None, *, continuation: Optional[str] = None
+    ) -> dict[str, Any]:
+        """List every video in a playlist (paginated). 1 credit.
+
+        Args:
+            list_id: Playlist ID or URL. Required for a first page unless
+                ``continuation`` is given.
+            continuation: Continuation token from a previous response's
+                ``continuation_token``, to fetch the next page.
+
+        Returns:
+            dict with ``playlist_id``, ``title``, ``videos`` (list),
+            ``has_more`` (bool), and ``continuation_token`` (present when
+            ``has_more`` is true).
+
+        Raises:
+            ValueError: if neither ``list_id`` nor ``continuation`` is given.
+            GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
+                the playlist is missing, private, or deleted.
+        """
+        if not list_id and not continuation:
+            raise ValueError("get_playlist() requires either 'list_id' or 'continuation'")
+        payload = self._get("/playlist", {"list": list_id, "continuation": continuation})
+        return payload["data"]
+
+
+# -- self-serve signup, no API key required --------------------------------
+
+
+def signup(
+    email: str,
+    *,
+    base_url: str = DEFAULT_BASE_URL,
+    timeout: float = DEFAULT_TIMEOUT,
+    session: Optional[requests.Session] = None,
+) -> str:
+    """Request a 6-digit email OTP to create or access an API key. Free, no key needed.
+
+    Step 1 of the self-serve signup flow. Follow with :func:`verify_signup`
+    once the caller has the code from their inbox. The code is valid for 10
+    minutes.
+
+    Args:
+        email: Address to send the one-time code to.
+        base_url: Override the API base URL.
+        timeout: Request timeout in seconds.
+        session: Optional ``requests.Session`` to reuse.
+
+    Returns:
+        The confirmation message string from the API.
+
+    Raises:
+        GetYouTubeTranscriptError: e.g. ``code="BAD_REQUEST"`` (HTTP 400) if
+            the email is missing or malformed.
+    """
+    payload = _send(
+        session or requests.Session(),
+        "POST",
+        f"{base_url.rstrip('/')}/signup",
+        json_body={"email": email},
+        timeout=timeout,
+    )
+    return payload.get("message", "")
+
+
+def verify_signup(
+    email: str,
+    otp: str,
+    *,
+    base_url: str = DEFAULT_BASE_URL,
+    timeout: float = DEFAULT_TIMEOUT,
+    session: Optional[requests.Session] = None,
+) -> str:
+    """Verify the OTP from :func:`signup` and mint a fresh API key. Free, no key needed.
+
+    Step 2 of the self-serve signup flow. Creates the account if it doesn't
+    exist yet, or signs in an existing one, either way returning a freshly
+    minted API key.
+
+    Args:
+        email: The same address passed to :func:`signup`.
+        otp: The 6-digit code the caller received by email.
+        base_url: Override the API base URL.
+        timeout: Request timeout in seconds.
+        session: Optional ``requests.Session`` to reuse.
+
+    Returns:
+        The raw API key string (``sk_live_...``). It is shown once here and
+        cannot be retrieved again - the caller is responsible for storing it.
+
+    Raises:
+        GetYouTubeTranscriptError: e.g. ``code="BAD_REQUEST"`` (HTTP 400) if
+            fields are missing or the code is invalid/expired.
+    """
+    payload = _send(
+        session or requests.Session(),
+        "POST",
+        f"{base_url.rstrip('/')}/signup/verify",
+        json_body={"email": email, "otp": otp},
+        timeout=timeout,
+    )
+    return payload["api_key"]
