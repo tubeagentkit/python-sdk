@@ -212,6 +212,32 @@ def test_get_playlist_by_id(client: Client):
     assert result["playlist_id"] == "PLillGF-RfqbYE6Ik_EuXA2iZFcE082B3s"
 
 
+@responses.activate
+def test_get_credits_is_free_endpoint(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/credits",
+        json={
+            "success": True,
+            "data": {
+                "plan_credits_left": 87,
+                "topup_credits_left": 0,
+                "plan": "monthly",
+                "rate_limit_per_minute": 200,
+            },
+        },
+        status=200,
+    )
+
+    result = client.get_credits()
+
+    assert result["plan"] == "monthly"
+    assert result["plan_credits_left"] == 87
+    req = responses.calls[0].request
+    assert req.headers["Authorization"] == "Bearer sk_live_test_key"
+    assert req.url == f"{BASE_URL}/credits"
+
+
 # -- error parsing --------------------------------------------------------
 
 

@@ -339,6 +339,23 @@ class Client:
         payload = self._get("/playlist", {"list": list_id, "continuation": continuation})
         return payload["data"]
 
+    # -- account -----------------------------------------------------------
+
+    def get_credits(self) -> dict[str, Any]:
+        """Check the remaining credit balance and plan for this API key. Free.
+
+        Returns:
+            dict with ``plan_credits_left``, ``topup_credits_left``, ``plan``
+            (one of ``"free"``, ``"monthly"``, ``"yearly"``), and
+            ``rate_limit_per_minute``.
+
+        Raises:
+            GetYouTubeTranscriptError: e.g. ``code="MISSING_API_KEY"``
+                (HTTP 401) if no API key is provided.
+        """
+        payload = self._get("/credits", {})
+        return payload["data"]
+
 
 # -- self-serve signup, no API key required --------------------------------
 

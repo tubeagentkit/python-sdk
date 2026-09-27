@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-MIT-4CAF50?style=for-the-badge)](./LICENSE)
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
 
-Python SDK for the [GetYouTubeTranscript](https://getyoutubetranscript.com) REST API - get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, and pull playlist contents, all with one typed client.
+Python SDK for the [GetYouTubeTranscript](https://getyoutubetranscript.com) REST API - get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
 
 Not published to PyPI yet - install straight from this repo.
 
@@ -83,6 +83,12 @@ while page["has_more"]:
 page = client.get_playlist("PLillGF-RfqbYE6Ik_EuXA2iZFcE082B3s")
 while page["has_more"]:
     page = client.get_playlist(continuation=page["continuation_token"])
+```
+
+### Account
+
+```python
+client.get_credits()  # free - plan_credits_left, topup_credits_left, plan, rate_limit_per_minute
 ```
 
 ## Error handling

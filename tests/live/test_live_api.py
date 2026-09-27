@@ -10,9 +10,9 @@ To run these yourself:
     pytest tests/live -v
 
 Credit cost per run: the two paid tests below (``get_transcript``,
-``search``) each spend 1 credit. The two channel tests are free endpoints.
-If you're testing against a shared/limited key, run a subset with
-``pytest tests/live -k transcript`` etc.
+``search``) each spend 1 credit. The channel and credits tests are free
+endpoints. If you're testing against a shared/limited key, run a subset
+with ``pytest tests/live -k transcript`` etc.
 """
 
 from __future__ import annotations
@@ -69,6 +69,14 @@ def test_search_live(client: Client):
     result = client.search("lofi hip hop", type="video", limit=5)
     assert "video_results" in result
     assert len(result["video_results"]) > 0
+
+
+def test_get_credits_live(client: Client):
+    """Free endpoint - safe to run often."""
+    result = client.get_credits()
+    assert result["plan"] in ("free", "monthly", "yearly")
+    assert isinstance(result["plan_credits_left"], int)
+    assert isinstance(result["rate_limit_per_minute"], int)
 
 
 def test_invalid_api_key_raises_typed_error():
