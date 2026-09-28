@@ -39,8 +39,8 @@ dev = [
 [project.urls]
 Homepage = "https://getyoutubetranscript.com"
 Documentation = "https://getyoutubetranscript.com/docs"
-Repository = "https://github.com/tubeagentkit/python-sdk"
-"Bug Tracker" = "https://github.com/tubeagentkit/python-sdk/issues"
+Repository = "https://github.com/tubeagentkit/youtube-transcript-api-python"
+"Bug Tracker" = "https://github.com/tubeagentkit/youtube-transcript-api-python/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/getyoutubetranscript"]

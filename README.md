@@ -11,7 +11,7 @@ Not published to PyPI yet - install straight from this repo.
 ## Install
 
 ```bash
-pip install git+https://github.com/tubeagentkit/python-sdk.git
+pip install git+https://github.com/tubeagentkit/youtube-transcript-api-python.git
 ```
 
 Requires Python 3.9+.
@@ -135,7 +135,7 @@ Other ways to use the [GetYouTubeTranscript API](https://getyoutubetranscript.co
 - [youtube-mcp](https://github.com/tubeagentkit/youtube-mcp): Remote YouTube MCP server for Claude, ChatGPT, Cursor and VS Code
 - [youtube-transcript-skills](https://github.com/tubeagentkit/youtube-transcript-skills): YouTube transcript Agent Skill for Claude Code, Cursor, Codex and OpenClaw
 - [n8n-nodes-getyoutubetranscript](https://github.com/tubeagentkit/n8n-nodes-getyoutubetranscript): n8n community node, also usable as an AI Agent tool
-- [node-sdk](https://github.com/tubeagentkit/node-sdk): YouTube Transcript API SDK for Node.js / TypeScript
+- [youtube-transcript-api-node](https://github.com/tubeagentkit/youtube-transcript-api-node): YouTube Transcript API SDK for Node.js / TypeScript
 
 ## License
 
