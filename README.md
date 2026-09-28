@@ -1,9 +1,10 @@
-# getyoutubetranscript
+# YouTube Transcript API: Python SDK
 
 [![License](https://img.shields.io/badge/License-MIT-4CAF50?style=for-the-badge)](./LICENSE)
 [![Website](https://img.shields.io/badge/Website-getyoutubetranscript.com-FF3B00?style=for-the-badge)](https://getyoutubetranscript.com)
+[![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 
-Python SDK for the [GetYouTubeTranscript](https://getyoutubetranscript.com) REST API - get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
+The official Python SDK (`getyoutubetranscript`) for the [GetYouTubeTranscript](https://getyoutubetranscript.com) YouTube Transcript API. Get YouTube video transcripts in Python without a Google API key, yt-dlp, or a headless browser. Get YouTube transcripts, search videos and channels, resolve channel handles, browse a channel's full upload history, search inside a channel, pull playlist contents, and check your credit balance, all with one typed client.
 
 Not published to PyPI yet - install straight from this repo.
 
@@ -126,6 +127,15 @@ GYT_API_KEY=sk_live_... pytest tests/live -v
 - [Full API docs](https://getyoutubetranscript.com/docs)
 - [OpenAPI spec](https://getyoutubetranscript.com/openapi.json)
 - [MCP server](https://getyoutubetranscript.com/youtube-mcp-server) - if you want an AI agent to call this API directly instead of via Python
+
+## Related projects
+
+Other ways to use the [GetYouTubeTranscript API](https://getyoutubetranscript.com):
+
+- [youtube-mcp](https://github.com/tubeagentkit/youtube-mcp): Remote YouTube MCP server for Claude, ChatGPT, Cursor and VS Code
+- [youtube-transcript-skills](https://github.com/tubeagentkit/youtube-transcript-skills): YouTube transcript Agent Skill for Claude Code, Cursor, Codex and OpenClaw
+- [n8n-nodes-getyoutubetranscript](https://github.com/tubeagentkit/n8n-nodes-getyoutubetranscript): n8n community node, also usable as an AI Agent tool
+- [node-sdk](https://github.com/tubeagentkit/node-sdk): YouTube Transcript API SDK for Node.js / TypeScript
 
 ## License
 
