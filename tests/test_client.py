@@ -66,6 +66,43 @@ def test_get_transcript_sends_bearer_auth_header_and_params(client: Client):
 
 
 @responses.activate
+def test_get_transcript_timestamps_sends_param_and_returns_segments(client: Client):
+    segments = [{"start": 3.96, "duration": 4.56, "text": "So, Reed, education"}]
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/transcript",
+        json={
+            "success": True,
+            "data": {"transcript": "So, Reed, education", "segments": segments},
+        },
+        status=200,
+    )
+
+    result = client.get_transcript("5e37ZT3SQbk", language="en", timestamps=True)
+
+    req = responses.calls[0].request
+    assert "timestamps=true" in req.url
+    assert result["segments"] == segments
+
+
+@responses.activate
+def test_get_transcript_omits_timestamps_by_default_and_when_false(client: Client):
+    responses.add(
+        responses.GET,
+        f"{BASE_URL}/transcript",
+        json={"success": True, "data": {"transcript": "hi"}},
+        status=200,
+    )
+
+    result = client.get_transcript("jNQXAC9IVRw")
+    client.get_transcript("jNQXAC9IVRw", timestamps=False)
+
+    assert "timestamps" not in responses.calls[0].request.url
+    assert "timestamps" not in responses.calls[1].request.url
+    assert "segments" not in result
+
+
+@responses.activate
 def test_get_transcript_omits_optional_language_when_not_given(client: Client):
     responses.add(
         responses.GET,

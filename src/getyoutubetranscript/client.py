@@ -11,6 +11,7 @@ from typing import Any, Optional
 import requests
 
 from .exceptions import GetYouTubeTranscriptError
+from .types import TranscriptData
 
 DEFAULT_BASE_URL = "https://getyoutubetranscript.com/api/v1"
 DEFAULT_TIMEOUT = 30.0
@@ -131,25 +132,39 @@ class Client:
 
     # -- transcript -----------------------------------------------------
 
-    def get_transcript(self, video: str, *, language: Optional[str] = None) -> dict[str, Any]:
+    def get_transcript(
+        self,
+        video: str,
+        *,
+        language: Optional[str] = None,
+        timestamps: bool = False,
+    ) -> TranscriptData:
         """Get a YouTube video's transcript, plus title/author/thumbnail. 1 credit.
 
         Args:
             video: Full or short YouTube video URL, or an 11-character video ID.
             language: Caption language code (e.g. ``"en"``, ``"es"``). Defaults
                 to the API's default of ``"en"`` when omitted.
+            timestamps: When ``True``, also return per-line timing in
+                ``segments``. Same 1 credit. The query param is only sent when
+                this is ``True``.
 
         Returns:
             dict with keys ``video_id``, ``language_code``, ``title``,
             ``author_name``, ``author_url``, ``thumbnail_url``,
-            ``transcript`` (one block of text, no per-segment timestamps),
-            and ``word_count``.
+            ``transcript`` (one block of text), and ``word_count``. With
+            ``timestamps=True`` it also has ``segments``, a list of
+            ``{"start": float, "duration": float, "text": str}`` (seconds),
+            one per caption line.
 
         Raises:
             GetYouTubeTranscriptError: e.g. ``code="NOT_FOUND"`` (HTTP 404) if
                 the video has no transcript/captions available.
         """
-        payload = self._get("/transcript", {"v": video, "language": language})
+        payload = self._get(
+            "/transcript",
+            {"v": video, "language": language, "timestamps": "true" if timestamps else None},
+        )
         return payload["data"]
 
     # -- search -----------------------------------------------------------

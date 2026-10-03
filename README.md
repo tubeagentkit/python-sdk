@@ -55,6 +55,16 @@ Every method costs 1 credit unless noted "free" below. Failed and rate-limited r
 client.get_transcript("jNQXAC9IVRw", language="en")
 ```
 
+Pass `timestamps=True` to also get one entry per caption line in `segments` (same 1 credit). Without it, the response has no `segments` key.
+
+```python
+result = client.get_transcript("5e37ZT3SQbk", timestamps=True)
+print(result["segments"][0])
+# {"start": 3.96, "duration": 4.56, "text": "So, Reed, education, which a lot of"}
+```
+
+Each segment is `{"start", "duration", "text"}` with `start` and `duration` in seconds. The `Segment` and `TranscriptData` typed dicts are importable from `getyoutubetranscript`.
+
 ### Search
 
 ```python
